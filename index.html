@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Kabo Focus</title>
+    <style>
+        :root {
+            --bg: #F2F2F7;
+            --card: #FFFFFF;
+            --text: #000000;
+            --subtext: #8E8E93;
+            --blue: #007AFF;
+            --green: #34C759;
+            --red: #FF3B30;
+            --input-bg: #F2F2F7;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #000000;
+                --card: #1C1C1E;
+                --text: #FFFFFF;
+                --subtext: #98989F;
+                --input-bg: #2C2C2E;
+            }
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            padding-bottom: 100px; /* Space for fixed button */
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        h1, h2 { text-align: center; margin: 10px 0; }
+        
+        /* Setup Screen */
+        .setup-container {
+            max-width: 500px;
+            margin: 40px auto;
+            text-align: center;
+        }
+        
+        input[type="text"] {
+            width: 70%;
+            padding: 15px;
+            border-radius: 12px;
+            border: none;
+            background: var(--card);
+            color: var(--text);
+            font-size: 18px;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            background: var(--blue);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+        }
+        
+        .btn:disabled { opacity: 0.5; }
+
+        /* Player List Chips */
+        .chip-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        
+        .chip {
+            background: var(--card);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 500;
+        }
+
+        /* Game Screen */
+        .header-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 0 10px;
+        }
+
+        .round-badge {
+            background: var(--subtext);
+            color: white;
+            padding: 5px 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .player-card {
+            background: var(--card);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+
+        .player-info {
+            flex: 1;
+        }
+
+        .player-name {
+            font-size: 16px;
+            color: var(--subtext);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .total-score {
+            font-size: 38px;
+            font-weight: 800;
+            margin-top: 5px;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .round-input-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 5px;
+        }
+
+        .round-input {
+            width: 70px;
+            height: 50px;
+            background: var(--input-bg);
+            border: none;
+            border-radius: 10px;
+            text-align: center;
+            font-size: 24px;
+            color: var(--text);
+            font-weight: 600;
+        }
+
+        .round-input:focus {
+            outline: 2px solid var(--blue);
+            background: var(--card);
+        }
+
+        .input-label {
+            font-size: 12px;
+            color: var(--subtext);
+        }
+
+        /* Bottom Fixed Action Bar */
+        .action-bar {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            z-index: 100;
+        }
+
+        .winner-crown { color: #FFD700; margin-right: 5px; }
+        
+        /* Utility */
+        .hidden { display: none; }
+        .lowest-score { color: var(--green); }
+        .high-score { color: var(--red); }
+
+    </style>
+</head>
+<body>
+
+    <div id="setupView" class="setup-container">
+        <h1>Kabo Tracker</h1>
+        <p style="color:var(--subtext)">Add 4+ players</p>
+        
+        <input type="text" id="newPlayerName" placeholder="Player Name" autocomplete="off">
+        <button class="btn" onclick="addPlayer()" style="margin-bottom: 20px;">Add</button>
+        
+        <div class="chip-container" id="playerChips"></div>
+        
+        <button id="startBtn" class="btn" onclick="startGame()" disabled style="background: var(--green);">Start Game</button>
+    </div>
+
+    <div id="gameView" class="hidden">
+        <div class="header-info">
+            <h2 id="roundDisplay">Round 1</h2>
+            <div class="round-badge" id="roundBadge">1 / 13</div>
+        </div>
+
+        <div id="cardsContainer">
+            </div>
+
+        <div class="action-bar">
+            <button id="nextRoundBtn" class="btn" onclick="finishRound()">Finish Round 1</button>
+            <button id="resetBtn" class="btn hidden" onclick="resetGame()" style="background: var(--subtext);">New Game</button>
+        </div>
+    </div>
+
+    <script>
+        let players = [];
+        let currentRound = 1;
+        const TOTAL_ROUNDS = 13;
+
+        function addPlayer() {
+            const input = document.getElementById('newPlayerName');
+            const name = input.value.trim();
+            if(name) {
+                // Initialize score to 0
+                players.push({ name: name, score: 0 });
+                renderChips();
+                input.value = '';
+                input.focus();
+            }
+        }
+
+        function renderChips() {
+            const container = document.getElementById('playerChips');
+            container.innerHTML = players.map(p => `<div class="chip">${p.name}</div>`).join('');
+            
+            const startBtn = document.getElementById('startBtn');
+            startBtn.disabled = players.length < 4;
+            startBtn.innerText = players.length < 4 ? `Need ${4 - players.length} more` : "Start Game";
+        }
+
+        function startGame() {
+            document.getElementById('setupView').classList.add('hidden');
+            document.getElementById('gameView').classList.remove('hidden');
+            renderGame();
+        }
+
+        function renderGame() {
+            const container = document.getElementById('cardsContainer');
+            container.innerHTML = '';
+
+            // Calculate who is winning (lowest score) to highlight them
+            const scores = players.map(p => p.score);
+            const minScore = Math.min(...scores);
+
+            players.forEach((player, index) => {
+                const isWinning = player.score === minScore && currentRound > 1;
+                const scoreClass = isWinning ? 'lowest-score' : '';
+                const crown = isWinning ? '<span class="winner-crown">👑</span>' : '';
+
+                const html = `
+                <div class="player-card">
+                    <div class="player-info">
+                        <div class="player-name">${crown}${player.name}</div>
+                        <div class="total-score ${scoreClass}" id="score-${index}">${player.score}</div>
+                    </div>
+                    <div class="round-input-wrapper">
+                        <span class="input-label">Round ${currentRound}</span>
+                        <input type="tel" class="round-input" id="input-${index}" placeholder="0" pattern="[0-9]*">
+                    </div>
+                </div>`;
+                container.insertAdjacentHTML('beforeend', html);
+            });
+
+            document.getElementById('roundDisplay').innerText = currentRound > TOTAL_ROUNDS ? "Game Over" : "Round " + currentRound;
+            document.getElementById('roundBadge').innerText = currentRound > TOTAL_ROUNDS ? "Done" : `${currentRound} / ${TOTAL_ROUNDS}`;
+            
+            const btn = document.getElementById('nextRoundBtn');
+            if (currentRound > TOTAL_ROUNDS) {
+                btn.classList.add('hidden');
+                document.getElementById('resetBtn').classList.remove('hidden');
+                disableInputs();
+            } else {
+                btn.innerText = `Finish Round ${currentRound}`;
+            }
+        }
+
+        function finishRound() {
+            let allFilled = true;
+            
+            // 1. Validation & Calculation
+            for(let i=0; i<players.length; i++) {
+                const input = document.getElementById(`input-${i}`);
+                const val = input.value;
+                if(val === '') {
+                    input.focus(); // Focus on the empty one
+                    return; 
+                }
+                players[i].score += parseInt(val);
+            }
+
+            // 2. Advance Game
+            currentRound++;
+            
+            // 3. Re-render UI
+            renderGame();
+
+            // 4. Scroll to top
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function disableInputs() {
+            const inputs = document.querySelectorAll('.round-input');
+            inputs.forEach(el => {
+                el.disabled = true;
+                el.value = "";
+                el.placeholder = "-";
+            });
+            
+            // Highlight Winner clearly
+            const scores = players.map(p => p.score);
+            const minScore = Math.min(...scores);
+            const winners = players.filter(p => p.score === minScore).map(p => p.name).join(' & ');
+            
+            document.getElementById('roundDisplay').innerHTML = `🏆 ${winners} Wins!`;
+            document.getElementById('roundDisplay').style.color = 'var(--green)';
+        }
+
+        function resetGame() {
+            if(confirm("Start a new game with same players?")) {
+                players.forEach(p => p.score = 0);
+                currentRound = 1;
+                document.getElementById('resetBtn').classList.add('hidden');
+                document.getElementById('nextRoundBtn').classList.remove('hidden');
+                renderGame();
+            }
+        }
+    </script>
+</body>
+</html>
